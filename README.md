@@ -1,4 +1,2 @@
-# gin -- web server for go
-
-test
+# Learning Note
 
