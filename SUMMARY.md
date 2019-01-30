@@ -2,4 +2,5 @@
 
 * [Learning Note](README.md)
 * [gin -- web server for go](gin-web-server-for-go.md)
+* [Golang basic](golang-basic.md)
 
