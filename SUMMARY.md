@@ -3,4 +3,5 @@
 * [Learning Note](README.md)
 * [gin -- web server for go](gin-web-server-for-go.md)
 * [Golang basic](golang-basic.md)
+* [Golang Map和Slice获取效率](golang-map-he-slice-huo-qu-xiao-lv.md)
 
