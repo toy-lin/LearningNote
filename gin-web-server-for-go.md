@@ -46,3 +46,5 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 ### 2.第二点的区别应该是主要区别。从上面的对比列表中可以看到，Gin框架的堆内存使用为0，堆内存分配数也为0，而Ace框架堆内存却分配了167次/请求。这应该是Ace比Gin慢的主要原因。这167次分配到底用在哪里，Gin是怎么做这些优化的？
 
+
+
