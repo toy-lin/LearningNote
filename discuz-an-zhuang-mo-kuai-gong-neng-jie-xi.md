@@ -47,7 +47,7 @@ discuz在这一步中会执行以下检查：
 
 discuz将会执行install/data文件夹中的install.sql文件中的sql语句创建相关数据库表，并且执行install\_data.sql文件中的sql语句创建基础数据。
 
-如果用户在上一步选择的是全新安装，则discuz还会执行/uc\_server/install/uc.sql中的sql在同一个数据库中创建UCenter需要用到的数据库表并输入相关初始化数据。然后保存UCenter相关信息到/config/config\_ucenter.php文件中。
+如果用户在上一步选择的是全新安装，则discuz还会执行/uc\_server/install/uc.sql中的sql在同一个数据库中创建UCenter需要用到的数据库表并输入相关初始化数据。然后保存UCenter相关信息到/config/config\_ucenter.php及/uc\_server/data/config.inc.php文件中。
 
 UCenter数据库表初始化数据包括：
 
