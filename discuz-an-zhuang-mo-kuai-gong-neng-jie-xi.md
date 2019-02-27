@@ -31,7 +31,9 @@ discuz在这一步中会执行以下检查：
 
 ### app\_reg
 
-设置运行环境。如果已有UCenter，则需输入已有的UCenter的相关信息及要建立的discuz站点的信息。否则discuz将进行完整的discuz + UCenter配置及数据库安装。如果你不知道UCenter是什么的话，选全新安装就对了。
+设置运行环境。如果已有UCenter，则需输入已有的UCenter的相关信息及要建立的discuz站点的信息。否则discuz将进行完整的discuz + UCenter配置及数据库安装。discuz跟UCenter的关系是多对一或者一对一的关系，你可以拥有多个论坛但是用户都是共用的，那你的所有论坛都配置成同一个UCenter就行了。注册了你某个论坛的用户也能登录你的另一个论坛。
+
+如果你不知道UCenter是什么的话，选全新安装就对了。
 
 如果选择已有UCenter Server并输入UCenter相关信息，discuz会进行验证。通过向配置的地址请求相关配置信息以验证UCenter Server是否正常运行，如果验证成功，则自动保存用户输入的UCenter信息到/config/config\_ucenter.php文件中。
 
