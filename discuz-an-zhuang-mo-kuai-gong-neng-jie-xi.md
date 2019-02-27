@@ -53,6 +53,10 @@ UCenter数据库表初始化数据包括：
 2. 向ucenter\_members表中插入第一个用户\(创始人\)用户名、密码等信息。
 3. 在ucenter\_admins表中插入数据，设置创始人的UCenter操作权限。
 
+UCenter数据库相关表格的说明可以参照链接：[http://wiki.blueidea.com/index.php?title=UCenter](http://wiki.blueidea.com/index.php?title=UCenter)
+
+discuz数据库可以参照：[http://forum.digitser.cn/forum.php?mod=viewthread&tid=179](http://forum.digitser.cn/forum.php?mod=viewthread&tid=179)
+
 ### ext\_info
 
 到达这个步骤表示discuz已经安装完成，会显示安装完成的信息，并创建/data/install.lock文件表示安装已完成。
