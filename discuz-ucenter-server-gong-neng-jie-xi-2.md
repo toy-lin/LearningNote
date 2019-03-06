@@ -6,7 +6,7 @@
 
 将列表中的存在映射关系的key创建为变量，value作为变量值。具体可看：[https://secure.php.net/manual/en/function.extract.php](https://secure.php.net/manual/en/function.extract.php)。
 
-#### 2.explode函数 
+#### 2.explode函数
 
 分割字符串，相当于Java或者Python中的split。
 
@@ -52,6 +52,25 @@ echo $str. "\n";
 This is a $string with my $name in it. 
 
 This is a cup with my coffee in it.
+
+#### 5.register\_shutdown\_function函数
+
+```php
+<?php
+function shutdown()
+{
+    // This is our shutdown function, in 
+    // here we can do any last operations
+    // before the script is complete.
+
+    echo 'Script executed with success', PHP_EOL;
+}
+
+register_shutdown_function('shutdown');
+?>
+```
+
+
 
 ## 功能
 
