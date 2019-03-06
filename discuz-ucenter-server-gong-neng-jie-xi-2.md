@@ -74,7 +74,9 @@ register_shutdown_function('shutdown');
 
 ## 功能
 
-discuz ucenter server采用MVC\(即Model、View、Control\)的代码架构，
+discuz ucenter server采用经典MVC\(即Model、View、Controller\)的代码架构，如下图所示。Model层实现了数据库及缓存等功能，View层实现了各种模板，Controller层则负责所有的业务逻辑，从Model层获取数据并对View进行渲染，输出给用户。
+
+![](.gitbook/assets/image.png)
 
 
 
