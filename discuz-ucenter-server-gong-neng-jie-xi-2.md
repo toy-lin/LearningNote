@@ -70,7 +70,9 @@ register_shutdown_function('shutdown');
 ?>
 ```
 
+#### 6.unlink函数
 
+删除一个文件名，有可能删除这个文件名指向的文件。
 
 ## 功能
 
@@ -78,5 +80,13 @@ discuz ucenter server采用经典MVC\(即Model、View、Controller\)的代码架
 
 ![](.gitbook/assets/image.png)
 
+下面我们分析一下UCenter后台几个比较特殊的功能模块：
 
+#### 数据备份
+
+
+
+#### 更新缓存
+
+#### 检验文件
 
