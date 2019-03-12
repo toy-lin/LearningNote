@@ -190,7 +190,18 @@ $_CACHE['apps'] = array (
 ?>
 ```
 
-更新模板缓存则是将data/view/目录下的所有缓存文件删除，以便下次用户访问时生成新的缓存文件。缓存文件的生成则是由template\(lib/template.class.php\)在编译模板文件之后保存的。
+更新模板缓存则是将data/view/目录下的所有缓存文件删除，以便下次用户访问时生成新的缓存文件。缓存文件则是由template\(lib/template.class.php\)在编译模板文件之后保存的。
 
 #### 检验文件
+
+这一块功能涉及discuz的插件功能。检验文件功能就是一个插件，它用于验证UCenter项目本身文件的完整性。插件存放在plugin/目录下，检验文件的插件目录为plugin/filecheck/。在用户访问插件功能时，会先require control/admin/plugin.php文件，这个文件内会查找目标插件并引用，相关代码如下：
+
+```php
+if(!@require_once UC_ROOT."./plugin/$a/plugin.php") {
+	exit('Plugin not found');
+}
+
+```
+
+最后调用通过调用插件类的方法执行插件功能。检验文件功能的实现是通过实现保存的文件md5值与现有文件的md5值进行比较然后统计出来的，其中被修改数指的是被修改过的文件的数量，不包括新增和删除，而一周内被修改则包括新增和删除的文件。
 
