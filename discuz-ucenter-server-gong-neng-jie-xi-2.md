@@ -84,9 +84,72 @@ discuz ucenter server采用经典MVC\(即Model、View、Controller\)的代码架
 
 #### 数据备份
 
+discuz ucenter有数据备份和数据恢复功能，都是针对数据库的。数据备份的主要功能实现在api/dbbak.php的sqldumptablestruct和sqldumptable函数中，最终将数据库以sql语句的方式导出到data/backup文件夹的.sql文件中。
 
+导出数据库表结构可以通过执行下面的sql语句导出：
+
+```sql
+SHOW CREATE TABLE $table
+```
+
+导出数表数据则先导出列字段，再根据数据类型批量导出数据：
+
+```sql
+SHOW FULL COLUMNS FROM $table
+```
+
+将字符和文本类型的数据导出为16进制的hex码，其他类型直接转化为字符串：
+
+```php
+($usehex && !empty($row[$i]) && (strexists($tablefields[$i]['Type'], 'char') || strexists($tablefields[$i]['Type'], 'text')) ? '0x'.bin2hex($row[$i]) : '\''.$db->escape_string($row[$i]).'\'')
+```
+
+最终备份输出的文件内容如下：
+
+```sql
+# Identify: MTU1MjI5NzU3NSx1Y2VudGVyLHVjZW50ZXIsbXVsdGl2b2wsMQ==
+# <?php exit();?>
+# ucenter Multi-Volume Data Dump Vol.1
+# Time: 2019-03-11 17:46:15
+# Type: ucenter
+# Table Prefix: dcz_ucenter_
+# utf8
+# ucenter Home: http://www.comsenz.com
+# Please visit our website for newest infomation about ucenter
+# --------------------------------------------------------
+
+
+DROP TABLE IF EXISTS dcz_ucenter_admins;
+CREATE TABLE dcz_ucenter_admins (
+  uid mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
+  username char(15) NOT NULL DEFAULT '',
+  allowadminsetting tinyint(1) NOT NULL DEFAULT 0,
+  allowadminapp tinyint(1) NOT NULL DEFAULT 0,
+  allowadminuser tinyint(1) NOT NULL DEFAULT 0,
+  allowadminbadword tinyint(1) NOT NULL DEFAULT 0,
+  allowadmintag tinyint(1) NOT NULL DEFAULT 0,
+  allowadminpm tinyint(1) NOT NULL DEFAULT 0,
+  allowadmincredits tinyint(1) NOT NULL DEFAULT 0,
+  allowadmindomain tinyint(1) NOT NULL DEFAULT 0,
+  allowadmindb tinyint(1) NOT NULL DEFAULT 0,
+  allowadminnote tinyint(1) NOT NULL DEFAULT 0,
+  allowadmincache tinyint(1) NOT NULL DEFAULT 0,
+  allowadminlog tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY username (username)
+) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 AUTO_INCREMENT=2;
+
+......
+
+INSERT INTO dcz_ucenter_admins VALUES ('1',0x61646d696e,'1','1','1','1','1','1','1','1','1','1','1','1');
+......
+```
+
+恢复数据就比较好理解了，就是直接执行这个备份文件，对数据库进行重建。恢复千万条，谨慎第一条，操作不规范，老板两行泪。
 
 #### 更新缓存
+
+
 
 #### 检验文件
 
