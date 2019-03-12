@@ -149,7 +149,48 @@ INSERT INTO dcz_ucenter_admins VALUES ('1',0x61646d696e,'1','1','1','1','1','1',
 
 #### 更新缓存
 
+更新缓存的功能实现在cachemodel中，分为更新数据缓存功能和更新模板缓存功能。
 
+更新数据缓存的列表由map变量决定：
+
+```php
+$this->map = array(
+	'settings' => array('settings'),
+	'badwords' => array('badwords'),
+	'plugins' => array('plugins'),
+	'apps' => array('apps'),
+);
+```
+
+分别是更新设置、不良词语、插件和APP列表。APP列表缓存的更新是通过调用appmodel的get\_apps方法从数据库中获取APP列表，然后将列表缓存到文件data/cache/apps.php中，下次要获取APP列表直接require该缓存文件就可以了，不需要再从数据库读取。apps.php文件的内容为：
+
+```php
+<?php
+$_CACHE['apps'] = array (
+  1 => 
+  array (
+    'appid' => '1',
+    'type' => 'DISCUZX',
+    'name' => 'Discuz! Board',
+    'url' => 'http://127.0.0.1',
+    'authkey' => 'o7y2z1J7rbd1O0Aaj2EcO4A8r9ca6cA99c5902ib23e3S3n6w2G0yfSfl7lcy9Re',
+    'ip' => '',
+    'viewprourl' => '',
+    'apifilename' => 'uc.php',
+    'charset' => '',
+    'dbcharset' => '',
+    'synlogin' => '1',
+    'recvnote' => '1',
+    'extra' => '',
+    'tagtemplates' => '',
+    'allowips' => '',
+  ),
+);
+
+?>
+```
+
+更新模板缓存则是将data/view/目录下的所有缓存文件删除，以便下次用户访问时生成新的缓存文件。缓存文件的生成则是由template\(lib/template.class.php\)在编译模板文件之后保存的。
 
 #### 检验文件
 
