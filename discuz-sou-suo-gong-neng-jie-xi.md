@@ -1,8 +1,46 @@
 # Discuz搜索功能解析
 
-## 知识点
+## 技术点
+
+### runhooks\(\)
+
+discuz在多个主要的入口文件中都调用了这个函数，在search.php中也调用了，碰巧发现了就不能放过。主要是hook这个词引起了我的兴趣，想了解下函数里到底做了什么。该函数内的主要代码如下，可以看出该函数是在执行某些插件相关的功能。
+
+```php
+...
+if($_G['setting']['plugins']['func'][HOOKTYPE]['common']) {
+	hookscript('common', 'global', 'funcs', array(), 'common');
+}
+...
+```
+
+再看看hookscript函数的主要代码就比较明朗了，hookscript主要执行了在全局变量$\_G中已设置的插件，并将返回值记录在全局变量$\_G中。
+
+```php
+	...
+	foreach((array)$_G['setting'][HOOKTYPE][$hscript][$script]['module'] as $identifier => $include) {
+		if($_G['pluginrunlist'] && !in_array($identifier, $_G['pluginrunlist'])) {
+			continue;
+		}
+		$hooksadminid[$identifier] = !$_G['setting'][HOOKTYPE][$hscript][$script]['adminid'][$identifier] || ($_G['setting'][HOOKTYPE][$hscript][$script]['adminid'][$identifier] && $_G['adminid'] > 0 && $_G['setting']['hookscript'][$hscript][$script]['adminid'][$identifier] >= $_G['adminid']);
+		if($hooksadminid[$identifier]) {
+			//引用插件类
+			@include_once DISCUZ_ROOT.'./source/plugin/'.$include.'.class.php';
+		}
+	}
+	...
+	//执行插件类中的方法
+	$return = $pluginclasses[$classkey]->$hookfunc[1]($param);
+	...
+	//记录执行方法的返回值
+	foreach($return as $k => $v) {
+		$_G['setting']['pluginhooks'][$hookkey][$k] .= $v;
+	}
+```
 
 ## 功能解析
+
+### 搜索帖子
 
 discuz的搜索功能模块位于source/module/search中，可搜索的类型比较多，我也不太清楚各个类型是什么意思，但是代码实现都差不多，所以此处只选择search\_forum.php和search\_user.php进行分析。forum搜索即帖子标题和内容的搜索，user即用户名的搜索。
 
@@ -41,6 +79,23 @@ foreach(C::t('forum_thread')->fetch_all_by_tid_fid_displayorder(explode(',',$ind
     $thread['realtid'] = $thread['isgroup'] == 1 ? $thread['closed'] : $thread['tid'];
     $threadlist[$thread['tid']] = procthread($thread, 'dt');
     $posttables[$thread['posttableid']][] = $thread['tid'];
+}
+```
+
+### 搜索用户
+
+如果进行用户搜索，最终会跳转到home.php?mod=spacecp&ac=search页面，搜索的主要逻辑在source/include/spacecp/spacecp\_search.php中。搜索用户的过程主要是将各种搜索条件组合成sql语句，需要注意的是用户名有可能进行模糊搜索，需要注意性能，相关代码如下：
+
+```php
+foreach (array('uid','username','videophotostatus','avatarstatus') as $value) {
+	if($_GET[$value]) {
+		if($value == 'username' && empty($_GET['precision'])) {
+			$_GET[$value] = stripsearchkey($_GET[$value]);
+			$wherearr[] = 's.'.DB::field($value, '%'.$_GET[$value].'%', 'like');
+		} else {
+			$wherearr[] = 's.'.DB::field($value, $_GET[$value]);
+		}
+	}
 }
 ```
 
