@@ -17,5 +17,30 @@ if($srchtype == 'fulltext' && $_G['setting']['sphinxon']) {
 }
 ```
 
+检索完成后，discuz会将搜索结果保存到common\_searchindex表中作为一次搜索记录，ids那一列即为匹配帖子的tid列表：
 
+```php
+$searchid = C::t('common_searchindex')->insert(array(
+				'srchmod' => $srchmod,
+				'keywords' => $keywords,
+				'searchstring' => $searchstring,
+				'useip' => $_G['clientip'],
+				'uid' => $_G['uid'],
+				'dateline' => $_G['timestamp'],
+				'expiration' => $expiration,
+				'num' => $num,
+				'ids' => $ids
+			), true);
+```
+
+根据ids获取到帖子的信息后，对标题进行高亮操作，再返回给用户：
+
+```php
+foreach(C::t('forum_thread')->fetch_all_by_tid_fid_displayorder(explode(',',$index['ids']), null, 0, $orderby, $start_limit, $_G['tpp'], '>=', $ascdesc) as $thread) {
+    $thread['subject'] = bat_highlight($thread['subject'], $keyword);
+    $thread['realtid'] = $thread['isgroup'] == 1 ? $thread['closed'] : $thread['tid'];
+    $threadlist[$thread['tid']] = procthread($thread, 'dt');
+    $posttables[$thread['posttableid']][] = $thread['tid'];
+}
+```
 
