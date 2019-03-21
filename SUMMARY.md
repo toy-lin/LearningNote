@@ -7,5 +7,6 @@
 * [Discuz安装模块功能解析](discuz-an-zhuang-mo-kuai-gong-neng-jie-xi.md)
 * [Discuz验证码功能解析](discuz-ucenter-server-gong-neng-jie-xi.md)
 * [Discuz UCenter Server功能解析](discuz-ucenter-server-gong-neng-jie-xi-2.md)
-* [Discuz搜索功能解析](discuz-sou-suo-gong-neng-jie-xi.md)
+* [Discuz搜索模块解析](discuz-sou-suo-gong-neng-jie-xi.md)
+* [Discuz论坛架构功能解析](discuz-si-ren-xiao-xi-gong-neng-jie-xi.md)
 
