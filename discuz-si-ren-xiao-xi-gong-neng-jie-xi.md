@@ -18,7 +18,7 @@ if(function_exists('spl_autoload_register')) {
 
 ## 结构解析
 
-Discuz结构庞大，功能繁杂，细看发现它整体大概分为以下几个模块：
+Discuz结构庞大，功能繁杂，但是它整体大概可以分为以下几个模块（我使用的discuz版本是x3.2）：
 
 | 模块 | 功能 |
 | :--- | :--- |
