@@ -2,7 +2,19 @@
 
 ## 知识点
 
-1. init\_get和init\_set函数：获取和修改php运行环境的变量值，即存于php.ini中的值。
+1.init\_get和init\_set函数：获取和修改php运行环境的变量值，即存于php.ini中的值。
+
+2.自动加载函数：discuz的class\_core.php中有下面的代码，其作用是当我们在代码中引用不存在的类时，自动加载对应的类。这时\_\_autoload就会被调用，并且类名会被作为参数传送过去。discuz的自动加载函数实现了自动加载source/class/目录下的类，避免了引用各种类文件的繁杂操作。
+
+```php
+if(function_exists('spl_autoload_register')) {
+	spl_autoload_register(array('core', 'autoload'));
+} else {
+	function __autoload($class) {
+		return core::autoload($class);
+	}
+}
+```
 
 ## 结构解析
 
@@ -105,7 +117,7 @@ if(!in_array($mod, array('space', 'spacecp', 'misc', 'magic', 'editor', 'invite'
 
 ### runhooks
 
-该函数内的主要代码如下，可以看出该函数是在执行某些插件相关的功能。
+每个入口都执行了一次runhooks函数，该函数内的主要代码如下，可以看出该函数是在执行某些插件相关的功能。
 
 ```php
 ...
