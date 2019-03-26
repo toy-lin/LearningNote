@@ -271,3 +271,29 @@ if(!submitcheck('regsubmit', 0, $seccodecheck, $secqaacheck)) {
 
 注册流程中还有不少地方不怎么理解，如果有需要再深入分析代码。
 
+### 登录
+
+登录功能相比注册功能简单一点，过程如下：
+
+```php
+...
+//验证密码输错次数
+if(!($_G['member_loginperm'] = logincheck($_GET['username']))) {
+    captcha::report($_G['clientip']);
+    showmessage('login_strike');
+}
+...
+//验证非法字符
+if(!$_GET['password'] || $_GET['password'] != addslashes($_GET['password'])) {
+    showmessage('profile_passwd_illegal');
+}
+...
+//检查用户名密码等信息是否匹配
+$result = userlogin($_GET['username'], $_GET['password'], $_GET['questionid'], $_GET['answer'], $this->setting['autoidselect'] ? 'auto' : $_GET['loginfield'], $_G['clientip']);
+...
+//将用户信息从存档表中移动到用户主表中，猜测是更改用户状态为在线
+C::t('common_member_archive')->move_to_master($member['uid']);
+```
+
+
+
