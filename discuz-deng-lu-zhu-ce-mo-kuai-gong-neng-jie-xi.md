@@ -4,9 +4,11 @@
 
 ## 功能解析
 
-discuz的member模块主管用户的登录、注册、账号激活、找回密码和切换在线状态等功能，下面我们一一分析这些功能。排列顺序按简单到难吧。
+discuz的member模块主管用户的登录、注册、账号激活、忘记密码和切换在线状态等功能，下面我们一一分析这些功能。排列顺序按简单到难吧。
 
 ### 切换在线状态
+
+切换在线状态的实现在/source/module/member\_switchstatus.php中。
 
 discuz用户有在线和隐身两种状态，用户点击更改状态时，后台会在数据库及session中（如果有开启session）更新用户状态：
 
@@ -17,6 +19,8 @@ C::t('common_member_status')->update($_G['uid'], array('invisible' => $_G['sessi
 ```
 
 ### 账号激活
+
+账号激活的实现在/source/module/member\_activate.php中。
 
 discuz自带了邮件激活账号的功能，激活流程比较简单。首先用户注册完之后，系统会生成6位数的随机认证码，并且用这个码拼成一个链接通过邮件发送给用户：
 
@@ -46,5 +50,11 @@ if($operation == 2 && $idstring == $_GET['id']) {
 }
 ```
 
-### 
+从上面的代码看，激活账号没有时间限制，但是在discuz源码的其他实现中，随机认证码是有时限的，超过了时限就会失效，如下面的忘记密码功能。
+
+### 忘记密码
+
+忘记密码取回密码的实现在/source/module/member\_lostpassword.php和member\_getpassword.php中。
+
+
 
