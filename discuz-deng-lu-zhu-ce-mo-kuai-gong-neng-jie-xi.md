@@ -291,7 +291,7 @@ if(!$_GET['password'] || $_GET['password'] != addslashes($_GET['password'])) {
 //检查用户名密码等信息是否匹配
 $result = userlogin($_GET['username'], $_GET['password'], $_GET['questionid'], $_GET['answer'], $this->setting['autoidselect'] ? 'auto' : $_GET['loginfield'], $_G['clientip']);
 ...
-//将用户信息从存档表中移动到用户主表中，猜测是更改用户状态为在线
+//将用户信息从存档表中移动到用户主表中，猜测是更改用户状态为已上线
 C::t('common_member_archive')->move_to_master($member['uid']);
 ```
 
