@@ -1,4 +1,4 @@
-# Discuz登录注册模块功能解析
+# Discuz member模块功能解析
 
 ## 知识点
 
