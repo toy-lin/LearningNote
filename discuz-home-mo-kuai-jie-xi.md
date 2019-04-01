@@ -146,5 +146,79 @@ onclick="showWindow('medal', 'home.php?mod=medal&action=confirm&medalid=7')"
 
 #### apply--提交申请
 
+提交申请的实现代码大致如下，在注释里分析其实现：
 
+```php
+$medalid = intval($_GET['medalid']);
+$_G['forum_formulamessage'] = $_G['forum_usermsg'] = $medalnew = '';
+//获取所有可用的勋章列表
+$medal = C::t('forum_medal')->fetch($medalid);
+//检查勋章是否可申请
+if(!$medal['type']) {
+	showmessage('medal_apply_invalid');
+}
+//检查是否已持有勋章
+if(C::t('common_member_medal')->count_by_uid_medalid($_G['uid'], $medalid)) {
+	showmessage('medal_apply_existence', 'home.php?mod=medal');
+}
+
+$applysucceed = FALSE;//是否符合申请条件
+$medalpermission = $medal['permission'] ? dunserialize($medal['permission']) : '';
+//检查勋章是否有用户组限制
+if($medalpermission[0] || $medalpermission['usergroupallow']) {
+	include libfile('function/forum');
+	medalformulaperm(serialize(array('medal' => $medalpermission)), 1);
+
+	if($_G['forum_formulamessage']) {
+		showmessage('medal_permforum_nopermission', 'home.php?mod=medal', array('formulamessage' => $_G['forum_formulamessage'], 'usermsg' => $_G['forum_usermsg']));
+	} else {
+		$applysucceed = TRUE;
+	}
+} else {
+	$applysucceed = TRUE;
+}
+
+if($applysucceed) {
+	$expiration = empty($medal['expiration'])? 0 : TIMESTAMP + $medal['expiration'] * 86400;
+	if($medal['type'] == 1) {//勋章类型为可购买
+		if($medal['price']) {//勋章是否需要花积分或威望等值购买
+			//积分或威望是否足够
+			$medal['credit'] = $medal['credit'] ? $medal['credit'] : $_G['setting']['creditstransextra'][3];
+			if($medal['price'] > getuserprofile('extcredits'.$medal['credit'])) {
+				showmessage('medal_not_get_credit', '', array('credit' => $_G['setting']['extcredits'][$medal[credit]][title]));
+			}
+			//扣除购买积分或威望等
+			updatemembercount($_G['uid'], array($medal['credit'] => -$medal['price']), true, 'BME', $medal['medalid']);
+		}
+
+		$memberfieldforum = C::t('common_member_field_forum')->fetch($_G['uid']);
+		$usermedal = $memberfieldforum;
+		unset($memberfieldforum);
+		$medal['medalid'] = $medal['medalid'].(empty($expiration) ? '' : '|'.$expiration);
+		$medalnew = $usermedal['medals'] ? $usermedal['medals']."\t".$medal['medalid'] : $medal['medalid'];
+		//给当前用户添加购买的勋章
+		C::t('common_member_field_forum')->update($_G['uid'], array('medals' => $medalnew));
+		C::t('common_member_medal')->insert(array('uid' => $_G['uid'], 'medalid' => $medal['medalid']), 0, 1);
+		$medalmessage = 'medal_get_succeed';
+	} else {//勋章类型为其他可申请的类型
+		//检查是否已经申请过了
+		if(C::t('forum_medallog')->count_by_verify_medalid($_G['uid'], $medal['medalid'])) {
+			showmessage('medal_apply_existence', 'home.php?mod=medal');
+		}
+		$medalmessage = 'medal_apply_succeed';
+		//通知管理员审核勋章
+		manage_addnotify('verifymedal');
+	}
+	//记录勋章申请请求
+	C::t('forum_medallog')->insert(array(
+	    'uid' => $_G['uid'],
+	    'medalid' => $medalid,
+	    'type' => $medal['type'],
+	    'dateline' => TIMESTAMP,
+	    'expiration' => $expiration,
+	    'status' => ($expiration ? 1 : 0),
+	));
+	showmessage($medalmessage, 'home.php?mod=medal', array('medalname' => $medal['name']));
+}
+```
 
