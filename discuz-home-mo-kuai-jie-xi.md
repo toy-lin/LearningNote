@@ -222,3 +222,151 @@ if($applysucceed) {
 }
 ```
 
+### task模块
+
+discuz自带任务模块，可在discuz管理中心-&gt;运营-&gt;站点任务中开启任务模块并管理论坛任务。
+
+任务模块主要有以下几个功能，请求的字段do的值代表功能：
+
+| do值 | 功能 |
+| :--- | :--- |
+|  | 当do字段值为空时，表示浏览任务列表 |
+| view | 查看任务详情 |
+| apply | 申请任务 |
+| delete | 放弃任务 |
+| draw | 领取奖励 |
+| giveup | 放弃任务，功能与delete一样，暂时未知被哪里调用 |
+| parter | 参与某任务的用户列表 |
+
+任务模块的业务逻辑实现主要在/source/class/class\_task.php中，其数据存储主要跟表common\_task、common\_mytask和common\_taskvar表相关。
+
+| 数据库表 | 描述 |
+| :--- | :--- |
+| common\_task | 存储所有论坛任务 |
+| common\_mytask | 存储所有用户和任务的关系 |
+| common\_taskvar | 存储任务的详细信息 |
+
+#### 展示任务列表
+
+获取任务列表的功能代码如下，我将在注释中解析功能：
+
+```php
+function tasklist($item) {
+		...
+		//从数据库中获取与用户和item相关的任务列表，item有4个值new/doing/done/failed分别对应新任务、进行中任务、已完成任务和失败任务
+		foreach(C::t('common_task')->fetch_all_by_status($_G['uid'], $item) as $task) {
+			//从fetch_all_by_status方法中看，new和canapply没有区别
+			if($item == 'new' || $item == 'canapply') {
+				//检查任务的时间限制
+				list($task['allowapply'], $task['t']) = $this->checknextperiod($task);
+				if($task['allowapply'] < 0) {//不符合时间限制则不显示任务
+					continue;
+				}
+				$task['noperm'] = $task['applyperm'] && $task['applyperm'] != 'all' && !(($task['applyperm'] == 'member'&& $_G['adminid'] == '0') || ($task['applyperm'] == 'admin' && $_G['adminid'] > '0') || forumperm($task['applyperm']));
+				$task['appliesfull'] = $task['tasklimits'] && $task['achievers'] >= $task['tasklimits'];
+				//不符合权限限制和已申请满员则不显示任务
+				if($item == 'canapply' && ($task['noperm'] || $task['appliesfull'])) {
+					continue;
+				}
+			}
+			$num++;
+			//任务的奖励类型
+			if($task['reward'] == 'magic') {
+				$magicids[] = $task['prize'];
+			} elseif($task['reward'] == 'medal') {
+				$medalids[] = $task['prize'];
+			} elseif($task['reward'] == 'invite') {
+				$invitenum = $task['prize'];
+			} elseif($task['reward'] == 'group') {
+				$groupids[] = $task['prize'];
+			}
+			//任务已启用且在可申请时间内
+			if($task['available'] == '2' && ($task['starttime'] > TIMESTAMP || ($task['endtime'] && $task['endtime'] <= TIMESTAMP))) {
+				$endtaskids[] = $task['taskid'];
+			}
+			//csc字段包含了任务进度百分比和最后更新时间，用\t隔开
+			$csc = explode("\t", $task['csc']);
+			$task['csc'] = floatval($csc[0]);//获取任务进度
+			$task['lastupdate'] = intval($csc[1]);//获取任务进度更新时间
+			//更新任务进度
+			if(!$updated && $item == 'doing' && $task['csc'] < 100) {
+				$updated = TRUE;
+				$escript = explode(':', $task['scriptname']);
+				//discuz支持任务插件，插件任务存在/source/plugin/中，原生任务在/source/class/task/中
+				if(count($escript) > 1) {
+					include_once DISCUZ_ROOT.'./source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.php';
+					$taskclassname = 'task_'.$escript[1];
+				} else {
+					require_once libfile('task/'.$task['scriptname'], 'class');
+					$taskclassname = 'task_'.$task['scriptname'];
+				}
+				$taskclass = new $taskclassname;
+				$task['applytime'] = $task['dateline'];
+				if(method_exists($taskclass, 'csc')) {
+					$result = $taskclass->csc($task);//计算任务进度
+				} else {
+					showmessage('task_not_found', '', array('taskclassname' => $taskclassname));
+				}
+				//更新用户和任务的关系
+				if($result === TRUE) {
+					$task['csc'] = '100';
+					C::t('common_mytask')->update($_G['uid'], $task['taskid'], array('csc' => $task['csc']));
+				} elseif($result === FALSE) {
+					C::t('common_mytask')->update($_G['uid'], $task['taskid'], array('status' => -1));
+				} else {
+					$task['csc'] = floatval($result['csc']);
+					C::t('common_mytask')->update($_G['uid'], $task['taskid'], array('csc' => $task['csc']."\t".$_G['timestamp']));
+				}
+			}
+			//如果该任务已完成或者已失败，检查是否可重新申请
+			if(in_array($item, array('done', 'failed')) && $task['period']) {
+				list($task['allowapply'], $task['t']) = $this->checknextperiod($task);
+				$task['allowapply'] = $task['allowapply'] > 0 ? 1 : 0;
+			}
+			//获取任务图标
+			$task['icon'] = $task['icon'] ? $task['icon'] : 'task.gif';
+			if(strtolower(substr($task['icon'], 0, 7)) != 'http://') {
+				$escript = explode(':', $task['scriptname']);
+				if(count($escript) > 1 && file_exists(DISCUZ_ROOT.'./source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.gif')) {
+					$task['icon'] = 'source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.gif';
+				} else {
+					$task['icon'] = 'static/image/task/'.$task['icon'];
+				}
+			}
+			$task['dateline'] = $task['dateline'] ? dgmdate($task['dateline'], 'u') : '';
+			$tasklist[] = $task;
+		}
+		//根据任务奖励类型获取奖励相关的信息
+		//获取奖励物品名
+		if($magicids) {
+			foreach(C::t('common_magic')->fetch_all($magicids) as $magic) {
+				$this->listdata[$magic['magicid']] = $magic['name'];
+			}
+		}
+		//获取奖励奖章名
+		if($medalids) {
+			foreach(C::t('forum_medal')->fetch_all($medalids) as $medal) {
+				$this->listdata[$medal['medalid']] = $medal['name'];
+			}
+		}
+		//获取奖励用户组名
+		if($groupids) {
+			foreach(C::t('common_usergroup')->fetch_all($groupids) as $group) {
+				$this->listdata[$group['groupid']] = $group['grouptitle'];
+			}
+		}
+		//获取奖励邀请码
+		if($invitenum) {
+			$this->listdata[$invitenum] = $_G['lang']['invite_code'];
+		}
+		//无奖励
+		if($endtaskids) {
+		}
+		return $tasklist;
+	}
+```
+
+
+
+
+
