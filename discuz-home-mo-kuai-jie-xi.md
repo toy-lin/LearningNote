@@ -547,7 +547,7 @@ function apply($id) {
 }
 ```
 
-#### delete--放弃任务
+#### delete,giveup--放弃任务
 
 用户放弃任务的主要逻辑如下：
 
@@ -564,36 +564,23 @@ C::t('common_task')->update_applicants($id, -1);
 
 ```php
 function draw($id) {
-	global $_G;
-
-	if(!($this->task = C::t('common_task')->fetch_by_uid($_G['uid'], $id))) {
-		showmessage('task_nonexistence');
-	} elseif(!isset($this->task['status']) || $this->task['status'] != 0) {
-		showmessage('task_not_underway');
+	...
 	} elseif($this->task['tasklimits'] && $this->task['achievers'] >= $this->task['tasklimits']) {
+		//完成任务人数限制
 		return -1;
 	}
-
-	$escript = explode(':', $this->task['scriptname']);
-	if(count($escript) > 1) {
-		include_once DISCUZ_ROOT.'./source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.php';
-		$taskclassname = 'task_'.$escript[1];
-	} else {
-		require_once libfile('task/'.$this->task['scriptname'], 'class');
-		$taskclassname = 'task_'.$this->task['scriptname'];
-	}
+	...
 	$taskclass = new $taskclassname;
 	if(method_exists($taskclass, 'csc')) {
-		$result = $taskclass->csc($this->task);
-	} else {
-		showmessage('task_not_found', '', array('taskclassname' => $taskclassname));
-	}
+		$result = $taskclass->csc($this->task);//更新并获取任务进度
+	} 
+	...
+	if($result === TRUE) {//任务已完成
 
-	if($result === TRUE) {
-
-		if($this->task['reward']) {
+		if($this->task['reward']) {//是否有奖励
 			$rewards = $this->reward();
 			$notification = $this->task['reward'];
+			//获取任务奖励信息
 			if($this->task['reward'] == 'magic') {
 				$rewardtext = C::t('common_magic')->fetch($this->task['prize']);
 				$rewardtext = $rewardtext['name'];
@@ -609,6 +596,7 @@ function draw($id) {
 			} elseif($this->task['reward'] == 'invite') {
 				$rewardtext = $this->task['prize'];
 			}
+			//通知用户奖励信息
 			notification_add($_G[uid], 'task', 'task_reward_'.$notification, array(
 				'taskid' => $this->task['taskid'],
 				'name' => $this->task['name'],
@@ -618,37 +606,24 @@ function draw($id) {
 				'prize' => $this->task['prize'],
 			));
 		}
-
+		//成功领取奖励的回调
 		if(method_exists($taskclass, 'sufprocess')) {
 			$taskclass->sufprocess($this->task);
 		}
-
+		//更新任务信息
 		C::t('common_mytask')->update($_G['uid'], $id, array('status' => 1, 'csc' => 100, 'dateline' => $_G['timestamp']));
 		C::t('common_task')->update_achievers($id, 1);
-
-		if($_G['inajax']) {
-			$this->message('100', $this->task['reward'] ? 'task_reward_'.$this->task['reward'] : 'task_completed', array(
-					'creditbonus' => $_G['setting']['extcredits'][$this->task['prize']]['title'].' '.$this->task['bonus'].' '.$_G['setting']['extcredits'][$this->task['prize']]['unit'],
-					'rewardtext' => $rewardtext,
-					'bonus' => $this->task['bonus'],
-					'prize' => $this->task['prize']
-				)
-			);
-		} else {
-			return true;
-		}
-
-	} elseif($result === FALSE) {
-
+		...
+	} elseif($result === FALSE) {//任务失败
+		//更新任务状态
 		C::t('common_mytask')->update($_G['uid'], $id, array('status' => -1));
 		if($_G['inajax']) {
 			$this->message('-1', 'task_failed');
 		} else {
 			return -2;
 		}
-
-	} else {
-
+	} else {//任务在执行中
+		//提示任务进度
 		$result['t'] = $this->timeformat($result['remaintime']);
 		$this->messagevalues['values'] = array('csc' => $result['csc'], 't' => $result['t']);
 		if($result['csc']) {
@@ -664,6 +639,25 @@ function draw($id) {
 		}
 
 	}
+}
+```
+
+#### parter--参与者列表
+
+获取参与者列表的主要实现如下：
+
+```php
+function parter($id) {
+	$parterlist = array();
+	//最多抓取8位参与者信息
+	foreach(C::t('common_mytask')->fetch_all_by_taskid($id, 8) as $parter) {
+		//展示参与者头像、昵称和任务进度等信息
+		$parter['avatar'] = avatar($parter['uid'], 'small');
+		$csc = explode("\t", $parter['csc']);
+		$parter['csc'] = floatval($csc[0]);
+		$parterlist[] = $parter;
+	}
+	return $parterlist;
 }
 ```
 
