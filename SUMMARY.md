@@ -12,4 +12,5 @@
 * [Discuz member模块功能解析](discuz-deng-lu-zhu-ce-mo-kuai-gong-neng-jie-xi.md)
 * [Discuz home模块解析（一）](discuz-home-mo-kuai-jie-xi.md)
 * [PHP各类型变量与布尔值之间的转换](php-ge-lei-xing-bian-liang-yu-bu-er-zhi-zhi-jian-de-zhuan-huan.md)
+* [Discuz home模块解析（二）](discuz-home-mo-kuai-jie-xi-er.md)
 
