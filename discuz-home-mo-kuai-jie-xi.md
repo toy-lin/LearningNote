@@ -1,4 +1,4 @@
-# Discuz home模块解析
+# Discuz home模块解析（一）
 
 ## 功能解析
 
@@ -487,7 +487,183 @@ function view($id) {
 }
 ```
 
+#### apply--申请任务
 
+apply的申请流程如下：
 
+```php
+function apply($id) {
+	//获取任务信息
+	$this->task = C::t('common_task')->fetch($id);
+	//检查任务状态，字面意思就能看懂
+	if($this->task['available'] != 2) {
+		showmessage('task_nonexistence');
+	} elseif(($this->task['starttime'] && $this->task['starttime'] > TIMESTAMP) || ($this->task['endtime'] && $this->task['endtime'] <= TIMESTAMP)) {
+		showmessage('task_offline');
+	} elseif($this->task['tasklimits'] && $this->task['achievers'] >= $this->task['tasklimits']) {
+		showmessage('task_full');
+	}
+	if($this->task['relatedtaskid'] && !C::t('common_mytask')->count($_G['uid'], $this->task['relatedtaskid'], 1)) {
+		//未完成关联任务
+		return -1;
+	} elseif($this->task['applyperm'] && $this->task['applyperm'] != 'all' && !(($this->task['applyperm'] == 'member' && $_G['adminid'] == '0') || ($this->task['applyperm'] == 'admin' && $_G['adminid'] > '0') || preg_match("/(^|\t)(".$_G['groupid'].")(\t|$)/", $this->task['applyperm']))) {
+		//不符合申请权限
+		return -2;
+	} elseif(!$this->task['period'] && C::t('common_mytask')->count($_G['uid'], $id)) {
+		//不允许多次申请任务
+		return -3;
+	} elseif($this->task['period']) {
+		//检查申请时间和申请次数等限制
+		$mytask = C::t('common_mytask')->fetch($_G['uid'], $id);
+		$task = C::t('common_task')->fetch($id);
+		$mytask['period'] = $task['period'];
+		$mytask['periodtype'] = $task['periodtype'];
+		unset($task);
+		list($allowapply) = $this->checknextperiod($mytask);
+		if($allowapply < 0) {
+			return -4;
+		}
+	}
+	...
+	$taskclass = new $taskclassname;
+	//检查其他条件
+	if(method_exists($taskclass, 'condition')) {
+		$taskclass->condition();
+	}
+	//申请成功，保存用户申请数据
+	C::t('common_mytask')->insert(array(
+		'uid' => $_G['uid'],
+		'username' => $_G['username'],
+		'taskid' => $this->task['taskid'],
+		'csc' => '0\t'.$_G['timestamp'],
+		'dateline' => $_G['timestamp']
+	), false, true);
+	//申请用户数
+	C::t('common_task')->update_applicants($this->task['taskid'], 1);
+	if(method_exists($taskclass, 'preprocess')) {
+		$taskclass->preprocess($this->task);
+	}
+	return true;
+}
+```
 
+#### delete--放弃任务
+
+用户放弃任务的主要逻辑如下：
+
+```php
+//移除用户和任务的关联
+C::t('common_mytask')->delete($_G['uid'], $id);
+//申请用户数减1
+C::t('common_task')->update_applicants($id, -1);
+```
+
+#### draw--领取奖励
+
+领取奖励的主要逻辑如下：
+
+```php
+function draw($id) {
+	global $_G;
+
+	if(!($this->task = C::t('common_task')->fetch_by_uid($_G['uid'], $id))) {
+		showmessage('task_nonexistence');
+	} elseif(!isset($this->task['status']) || $this->task['status'] != 0) {
+		showmessage('task_not_underway');
+	} elseif($this->task['tasklimits'] && $this->task['achievers'] >= $this->task['tasklimits']) {
+		return -1;
+	}
+
+	$escript = explode(':', $this->task['scriptname']);
+	if(count($escript) > 1) {
+		include_once DISCUZ_ROOT.'./source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.php';
+		$taskclassname = 'task_'.$escript[1];
+	} else {
+		require_once libfile('task/'.$this->task['scriptname'], 'class');
+		$taskclassname = 'task_'.$this->task['scriptname'];
+	}
+	$taskclass = new $taskclassname;
+	if(method_exists($taskclass, 'csc')) {
+		$result = $taskclass->csc($this->task);
+	} else {
+		showmessage('task_not_found', '', array('taskclassname' => $taskclassname));
+	}
+
+	if($result === TRUE) {
+
+		if($this->task['reward']) {
+			$rewards = $this->reward();
+			$notification = $this->task['reward'];
+			if($this->task['reward'] == 'magic') {
+				$rewardtext = C::t('common_magic')->fetch($this->task['prize']);
+				$rewardtext = $rewardtext['name'];
+			} elseif($this->task['reward'] == 'medal') {
+				$rewardtext = C::t('forum_medal')->fetch($this->task['prize']);
+				$rewardtext = $rewardtext['name'];
+				if(!$this->task['bonus']) {
+					$notification = 'medal_forever';
+				}
+			} elseif($this->task['reward'] == 'group') {
+				$group = C::t('common_usergroup')->fetch($this->task['prize']);
+				$rewardtext = $group['grouptitle'];
+			} elseif($this->task['reward'] == 'invite') {
+				$rewardtext = $this->task['prize'];
+			}
+			notification_add($_G[uid], 'task', 'task_reward_'.$notification, array(
+				'taskid' => $this->task['taskid'],
+				'name' => $this->task['name'],
+				'creditbonus' => $_G['setting']['extcredits'][$this->task['prize']]['title'].' '.$this->task['bonus'].' '.$_G['setting']['extcredits'][$this->task['prize']]['unit'],
+				'rewardtext' => $rewardtext,
+				'bonus' => $this->task['bonus'],
+				'prize' => $this->task['prize'],
+			));
+		}
+
+		if(method_exists($taskclass, 'sufprocess')) {
+			$taskclass->sufprocess($this->task);
+		}
+
+		C::t('common_mytask')->update($_G['uid'], $id, array('status' => 1, 'csc' => 100, 'dateline' => $_G['timestamp']));
+		C::t('common_task')->update_achievers($id, 1);
+
+		if($_G['inajax']) {
+			$this->message('100', $this->task['reward'] ? 'task_reward_'.$this->task['reward'] : 'task_completed', array(
+					'creditbonus' => $_G['setting']['extcredits'][$this->task['prize']]['title'].' '.$this->task['bonus'].' '.$_G['setting']['extcredits'][$this->task['prize']]['unit'],
+					'rewardtext' => $rewardtext,
+					'bonus' => $this->task['bonus'],
+					'prize' => $this->task['prize']
+				)
+			);
+		} else {
+			return true;
+		}
+
+	} elseif($result === FALSE) {
+
+		C::t('common_mytask')->update($_G['uid'], $id, array('status' => -1));
+		if($_G['inajax']) {
+			$this->message('-1', 'task_failed');
+		} else {
+			return -2;
+		}
+
+	} else {
+
+		$result['t'] = $this->timeformat($result['remaintime']);
+		$this->messagevalues['values'] = array('csc' => $result['csc'], 't' => $result['t']);
+		if($result['csc']) {
+			C::t('common_mytask')->update($_G['uid'], $id, array('csc' => $result['csc']."\t".$_G['timestamp']));
+			$this->messagevalues['msg'] = $result['t'] ? 'task_doing_rt' : 'task_doing';
+		} else {
+			$this->messagevalues['msg'] = $result['t'] ? 'task_waiting_rt' : 'task_waiting';
+		}
+		if($_G['inajax']) {
+			$this->message($result['csc'], $this->messagevalues['msg'], $this->messagevalues['values']);
+		} else {
+			return -3;
+		}
+
+	}
+}
+```
 
