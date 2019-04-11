@@ -4,18 +4,18 @@
 
 home模块很庞大，包含了discuz论坛和用户信息相关的几乎所有功能，比如动态、消息、勋章、道具等等，有的功能还分为很多小功能，下面列出home模块基本的组成：
 
-| 子模块 | 功能 | 说明 |
-| :--- | :--- | :--- |
-| space | 活动、相册、日志、收藏、好友、分享、悬赏等等等等 | 用户个人空间相关的功能 |
-| spacecp |  | 用户个人空间相关功能的改动，如添加好友、发日志、收藏帖子等等 |
-| misc |  |  |
-| magic |  | 道具相关 |
-| editor |  | 编辑器 |
-| invite |  | 邀请相关 |
-| task |  | 任务相关 |
-| medal |  | 勋章相关 |
-| rss |  | 网站信息 |
-| follow |  | 广播相关 |
+| 子模块 | 说明 |
+| :--- | :--- |
+| space | 用户个人空间相关的功能，如活动、相册、日志、收藏、好友、分享、悬赏等等 |
+| spacecp | 用户个人空间相关功能的改动，如添加好友、发日志、收藏帖子等等 |
+| misc |  |
+| magic | 道具相关 |
+| editor | 编辑器 |
+| invite | 邀请相关 |
+| task | 任务相关，如任务列表、申请任务、获取奖励、放弃任务等功能 |
+| medal | 勋章相关，如勋章列表、申请勋章等功能 |
+| rss | 网站信息聚合页 |
+| follow | 广播相关 |
 
 下面我们分别分析home模块的各个子模块：
 
@@ -364,6 +364,127 @@ function tasklist($item) {
 		}
 		return $tasklist;
 	}
+```
+
+#### view--任务详情
+
+任务详情的代码如下：
+
+```php
+function view($id) {
+	//获取任务信息
+	$this->task = C::t('common_task')->fetch_by_uid($_G['uid'], $id);
+	...
+	//获取任务奖励信息
+	switch($this->task['reward']) {
+		case 'magic':
+			$this->task['rewardtext'] = C::t('common_magic')->fetch($this->task['prize']);
+			$this->task['rewardtext'] = $this->task['rewardtext']['name'];
+			break;
+		case 'medal':
+			$this->task['rewardtext'] = C::t('forum_medal')->fetch($this->task['prize']);
+			$this->task['rewardtext'] = $this->task['rewardtext']['name'];
+			break;
+		case 'group':
+			$group = C::t('common_usergroup')->fetch($this->task['prize']);
+			$this->task['rewardtext'] = $group['grouptitle'];
+			break;
+	}
+	//获取任务图标链接
+	$this->task['icon'] = $this->task['icon'] ? $this->task['icon'] : 'task.gif';
+	if(strtolower(substr($this->task['icon'], 0, 7)) != 'http://') {
+		$escript = explode(':', $this->task['scriptname']);
+		if(count($escript) > 1 && file_exists(DISCUZ_ROOT.'./source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.gif')) {
+			$this->task['icon'] = 'source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.gif';
+		} else {
+			$this->task['icon'] = 'static/image/task/'.$this->task['icon'];
+		}
+	}
+	//获取任务结束时间和任务描述
+	$this->task['endtime'] = $this->task['endtime'] ? dgmdate($this->task['endtime'], 'u') : '';
+	$this->task['description'] = nl2br($this->task['description']);
+
+	$this->taskvars = array();
+	foreach(C::t('common_taskvar')->fetch_all_by_taskid($id) as $taskvar) {
+		if(!$taskvar['variable'] || $taskvar['value']) {
+			if(!$taskvar['variable']) {
+				$taskvar['value'] = $taskvar['description'];
+			}
+			//用户相对该任务的状态
+			if($taskvar['sort'] == 'apply') {
+				$this->taskvars['apply'][] = $taskvar;
+			} elseif($taskvar['sort'] == 'complete') {
+				$this->taskvars['complete'][$taskvar['variable']] = $taskvar;
+			} elseif($taskvar['sort'] == 'setting') {
+				$this->taskvars['setting'][$taskvar['variable']] = $taskvar;
+			}
+		}
+	}
+	//获取允许申请任务的用户组信息
+	$this->task['grouprequired'] = $comma = '';
+	$this->task['applyperm'] = $this->task['applyperm'] == 'all' ? '' : $this->task['applyperm'];
+	if(!in_array($this->task['applyperm'], array('', 'member', 'admin'))) {
+		$query = C::t('common_usergroup')->fetch_all(explode(',', str_replace("\t", ',', $this->task['applyperm'])));
+		foreach($query as $group) {
+			$this->task['grouprequired'] .= $comma.$group[grouptitle];
+			$comma = ', ';
+		}
+	}
+	//申请此任务前需要完成任务的任务信息
+	if($this->task['relatedtaskid']) {
+		$task = C::t('common_task')->fetch($this->task['relatedtaskid']);
+		$_G['taskrequired'] = $task['name'];
+	}
+	//根据scriptname判断任务类型是内置任务还是插件类型的任务，并且获取任务对应的实现类
+	$escript = explode(':', $this->task['scriptname']);
+	if(count($escript) > 1) {
+		include_once DISCUZ_ROOT.'./source/plugin/'.$escript[0].'/task/task_'.$escript[1].'.php';
+		$taskclassname = 'task_'.$escript[1];
+	} else {
+		require_once libfile('task/'.$this->task['scriptname'], 'class');
+		$taskclassname = 'task_'.$this->task['scriptname'];
+	}
+	$taskclass = new $taskclassname;
+	if($this->task['status'] == '-1') {//失败的任务
+		if($this->task['period']) {//检查申请时间限制
+			list($allowapply, $this->task['t']) = $this->checknextperiod($this->task);
+		} else {
+			$allowapply = -4;//小于0则为不可申请
+		}
+	} elseif($this->task['status'] == '0') {//正在执行的任务
+		...
+		if($this->task['csc'] < 100) {//如果任务进度不是已完成，则检查任务进度
+			if(method_exists($taskclass, 'csc')) {
+				$result = $taskclass->csc($this->task);//更新任务进度，返回值为任务是否已完成或者进度
+			}
+			...
+		}
+	} elseif($this->task['status'] == '1') {//已完成的任务
+		if($this->task['period']) {//检查是否可重新申请
+			list($allowapply, $this->task['t']) = $this->checknextperiod($this->task);
+		} else {
+			$allowapply = -5;
+		}
+	} else {
+		$allowapply = 1;
+	}
+	if(method_exists($taskclass, 'view')) {//获取勋章展示信息
+		$this->task['viewmessage'] = $taskclass->view($this->task, $this->taskvars);
+	} else {
+		$this->task['viewmessage'] = '';
+	}
+	if($allowapply > 0) {//检查是否有其他申请限制
+		if($this->task['applyperm'] && $this->task['applyperm'] != 'all' && !(($this->task['applyperm'] == 'member' && $_G['adminid'] == '0') || ($this->task['applyperm'] == 'admin' && $_G['adminid'] > '0') || preg_match("/(^|\t)(".$_G['groupid'].")(\t|$)/", $this->task['applyperm']))) {
+			$allowapply = -2;
+		} elseif($this->task['tasklimits'] && $this->task['achievers'] >= $this->task['tasklimits']) {
+			$allowapply = -3;
+		}
+	}
+	
+	$this->task['dateline'] = dgmdate($this->task['dateline'], 'u');
+	return $allowapply;
+
+}
 ```
 
 
