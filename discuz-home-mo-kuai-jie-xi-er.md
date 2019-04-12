@@ -93,57 +93,53 @@ $userapp = array();
 if($appid) {
 	$userapp = C::t('common_myapp')->fetch($appid);
 }
+//获取管理员邀请者用户信息
 $space = getuserbyuid($uid);
 if(empty($space)) {
 	showmessage('space_does_not_exist', '', array(), array('return' => true));
 }
 $jumpurl = $appid ? "userapp.php?mod=app&id=$appid&my_extra=invitedby_bi_{$uid}_$_GET[c]&my_suffix=Lw%3D%3D" : 'home.php?mod=space&uid='.$uid;
-if($acceptconfirm) {
-	dsetcookie('invite_auth', '');
-
-	if($_G['uid'] == $uid) {
-		showmessage('should_not_invite_your_own', '', array(), array('return' => true));
-	}
-
-	require_once libfile('function/friend');
-	if(friend_check($uid)) {
-		showmessage('you_have_friends', $jumpurl);
-	}
-
+if($acceptconfirm) {//用户接受好友申请
+	...
+	//加为好友
 	friend_make($space['uid'], $space['username']);
 
 	if($id) {
+		//邀请码设置为已使用
 		C::t('common_invite')->update($id, array('fuid'=>$_G['uid'], 'fusername'=>$_G['username'], 'regdateline' => $_G['timestamp'], 'status' => 2));
+		//加好友通知
 		notification_add($uid, 'friend', 'invite_friend', array('actor' => '<a href="home.php?mod=space&uid='.$_G['uid'].'" target="_blank">'.$_G['username'].'</a>'), 1);
 	}
+	//将用户信息重表field_home中取出，合并到space变量中
 	space_merge($space, 'field_home');
 	if(!empty($space['privacy']['feed']['invite'])) {
 		require_once libfile('function/feed');
 		$tite_data = array('username' => '<a href="home.php?mod=space&uid='.$_G['uid'].'">'.$_G['username'].'</a>');
 		feed_add('friend', 'feed_invite', $tite_data, '', array(), '', array(), array(), '', '', '', 0, 0, '', $space['uid'], $space['username']);
 	}
-
+	//受邀请方接受邀请的积分奖励
 	if($_G['setting']['inviteconfig']['inviteaddcredit']) {
 		updatemembercount($_G['uid'],
 			array($_G['setting']['inviteconfig']['inviterewardcredit'] => $_G['setting']['inviteconfig']['inviteaddcredit']));
 	}
+	//邀请方邀请用户的积分奖励
 	if($_G['setting']['inviteconfig']['invitedaddcredit']) {
 		updatemembercount($uid,
 			array($_G['setting']['inviteconfig']['inviterewardcredit'] => $_G['setting']['inviteconfig']['invitedaddcredit']));
 	}
-
+	//
 	include_once libfile('function/stat');
 	updatestat($appid ? 'appinvite' : 'invite');
 
 	showmessage('invite_friend_ok', $jumpurl);
-
 } else {
 	dsetcookie('invite_auth', $cookievar, 604800);
 }
-
+//获取邀请者用户信息
 space_merge($space, 'count');
 space_merge($space, 'field_home');
 space_merge($space, 'profile');
+//获取邀请者好友列表
 $flist = array();
 $query = C::t('home_friend')->fetch_all_by_uid($uid, 0, 12, true);
 foreach($query as $value) {
