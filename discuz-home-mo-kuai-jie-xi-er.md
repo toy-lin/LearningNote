@@ -151,3 +151,152 @@ $jumpurl = urlencode($jumpurl);
 include_once template('home/invite');
 ```
 
+### magic模块
+
+magic模块在discuz中是道具模块。道具模块的功能结构大致如下：
+
+| action | operation | 说明 |
+| :--- | :--- | :--- |
+| shop | index | 道具商店默认页面 |
+|  | hot | 热销道具页面 |
+|  | buy | 购买页面及购买功能 |
+|  | give | 赠送页面及赠送功能 |
+| mybox | use | 使用道具 |
+|  | drop | 丢弃道具 |
+|  | give | 赠送道具 |
+| log | uselog | 道具使用日志 |
+|  | buylog | 道具购买日志 |
+|  | givelog | 道具赠送日志 |
+|  | receivelog | 道具获赠日志 |
+
+接下来我们一一分析上面的功能：
+
+#### shop--道具商店相关功能
+
+道具商店index和hot页面和功能实现如下：
+
+```php
+//在common_magic表中获取可用道具的总个数。
+$magiccount = C::t('common_magic')->count_page($operation);
+//生成翻页布局
+$multipage = multi($magiccount, $_G['tpp'], $page, "home.php?mod=magic&action=shop&operation=$operation");
+//在common_magic表中获取当前页面的道具列表。$_G['tpp']为每页道具数量，默认12。
+foreach(C::t('common_magic')->fetch_all_page($operation, $start_limit, $_G['tpp']) as $magic) {
+	//获取道具出售的折扣并计算出售价格，跟用户所在的用户组有关
+	$magic['discountprice'] = $_G['group']['magicsdiscount'] ? intval($magic['price'] * ($_G['group']['magicsdiscount'] / 10)) : intval($magic['price']);
+	$eidentifier = explode(':', $magic['identifier']);
+	//获取道具图标
+	if(count($eidentifier) > 1) {
+		//这里可以看出道具也支持插件
+		$magic['pic'] = 'source/plugin/'.$eidentifier[0].'/magic/magic_'.$eidentifier[1].'.gif';
+	} else {
+		$magic['pic'] = STATICURL.'image/magic/'.strtolower($magic['identifier']).'.gif';
+	}
+	$magiclist[] = $magic;
+}
+...
+//输出最终页面
+include template('home/space_magic');
+```
+
+道具商店购买功能实现如下：
+
+```php
+...
+if(!submitcheck('operatesubmit')) {//显示确认购买窗口
+	...
+	//允许被使用道具的用户组
+	if($magicperm['targetgroups']) {
+		loadcache('usergroups');
+		foreach(explode("\t", $magicperm['targetgroups']) as $_G['groupid']) {
+			if(isset($_G['cache']['usergroups'][$_G['groupid']])) {
+				$targetgroupperm .= $comma.$_G['cache']['usergroups'][$_G['groupid']]['grouptitle'];
+				$comma = '&nbsp;';
+			}
+		}
+	}
+	//允许使用道具的版块
+	if($magicperm['forum']) {
+		loadcache('forums');
+		foreach(explode("\t", $magicperm['forum']) as $fid) {
+			if(isset($_G['cache']['forums'][$fid])) {
+				$forumperm .= $comma.'<a href="forum.php?mod=forumdisplay&fid='.$fid.'" target="_blank">'.$_G['cache']['forums'][$fid]['name'].'</a>';
+				$comma = '&nbsp;';
+			}
+		}
+	}
+	//页面展示
+	include template('home/space_magic_shop_opreation');
+	dexit();
+} else {//提交购买请求
+	$magicnum = intval($_GET['magicnum']);
+	$magic['weight'] = $magic['weight'] * $magicnum;
+	$totalprice = $magic['discountprice'] * $magicnum;
+	//价差价格及剩余数量
+	if(getuserprofile('extcredits'.$magic['credit']) < $totalprice) {
+		if($_G['setting']['ec_ratio'] && $_G['setting']['creditstrans'][0] == $magic['credit']) {
+			showmessage('magics_credits_no_enough_and_charge', '', array('credit' => $_G['setting']['extcredits'][$magic['credit']]['title']));
+		} else {
+			showmessage('magics_credits_no_enough', '', array('credit' => $_G['setting']['extcredits'][$magic['credit']]['title']));
+		}
+	} elseif($magic['num'] < $magicnum) {
+		showmessage('magics_num_no_enough');
+	} elseif(!$magicnum || $magicnum < 0) {
+		showmessage('magics_num_invalid');
+	}
+	//在common_member_magic表中为用户添加道具
+	getmagic($magic['magicid'], $magicnum, $magic['weight'], $totalweight, $_G['uid'], $_G['group']['maxmagicsweight']);
+	//在common_magiclog表中添加道具购买记录
+	updatemagiclog($magic['magicid'], '1', $magicnum, $magic['price'].'|'.$magic['credit'], $_G['uid']);
+	//更新道具存量
+	C::t('common_magic')->update_salevolume($magic['magicid'], $magicnum);
+	//在common_member_count表中更新用户积分信息
+	updatemembercount($_G['uid'], array($magic['credit'] => -$totalprice), true, 'BMC', $magic['magicid']);
+	//购买成功
+	showmessage('magics_buy_succeed', 'home.php?mod=magic&action=mybox', array('magicname' => $magic['name'], 'num' => $magicnum, 'credit' => $totalprice.' '.$_G['setting']['extcredits'][$magic['credit']]['unit'].$_G['setting']['extcredits'][$magic['credit']]['title']));
+}
+```
+
+赠送道具：
+
+```php
+//该用户组不允许使用道具，包括赠送
+if($_G['group']['allowmagics'] < 2) {
+	showmessage('magics_nopermission');
+}
+...
+if(!submitcheck('operatesubmit')) {//赠送道具确认窗口
+
+	include libfile('function/friend');
+	$buddyarray = friend_list($_G['uid'], 20);//可选的朋友列表
+	include template('home/space_magic_shop_opreation');
+	dexit();
+
+} else {//确认赠送道具
+	...
+	//检查金币、存量等是否足够
+	if(getuserprofile('extcredits'.$magic['credit']) < $totalprice) {
+		if($_G['setting']['ec_ratio'] && $_G['setting']['creditstrans'][0] == $magic['credit']) {
+			showmessage('magics_credits_no_enough_and_charge', '', array('credit' => $_G['setting']['extcredits'][$magic['credit']]['title']));
+		} else {
+			showmessage('magics_credits_no_enough', '', array('credit' => $_G['setting']['extcredits'][$magic['credit']]['title']));
+		}
+	} elseif($magic['num'] < $magicnum) {
+		showmessage('magics_num_no_enough');
+	} elseif(!$magicnum || $magicnum < 0) {
+		showmessage('magics_num_invalid');
+	}
+	...
+	//在common_member_magic表中给用户添加道具
+	givemagic($toname, $magic['magicid'], $magicnum, $magic['num'], $totalprice, $givemessage, $magicarray);
+	//更新道具存量
+	C::t('common_magic')->update_salevolume($magic['magicid'], $magicnum);
+	//在common_member_count表中更新用户积分信息
+	updatemembercount($_G['uid'], array($magic['credit'] => -$totalprice), true, 'BMC', $magicid);
+	showmessage('magics_buygive_succeed', 'home.php?mod=magic&action=shop', array('magicname' => $magic['name'], 'toname' => $toname, 'num' => $magicnum, 'credit' => $_G['setting']['extcredits'][$magic['credit']]['title'].' '.$totalprice.' '.$_G['setting']['extcredits'][$magic['credit']]['unit']), array('locationtime' => true));
+
+}
+```
+
+
+
