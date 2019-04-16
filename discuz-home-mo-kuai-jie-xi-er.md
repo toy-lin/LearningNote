@@ -302,7 +302,11 @@ mybox我的道具中的功能和上述的功能基本类似，所以不做分析
 
 ### follow模块
 
-follow模块是跟广播相关的功能。广播功能可以在管理后台-&gt;全局-&gt;站点功能中开启。
+follow模块是跟动态相关的功能，有关注、特别关注的区别，也有广播大厅可以看到所有动态。此功能在discuz中称作广播。广播功能可以在管理后台-&gt;全局-&gt;站点功能中开启。
+
+其主要实现代码在/source/module/home/home\_follow.php中。用户之间的关注关系存在表home\_follow中。用户发表的动态存在home\_follow\_feed表中，本质上每条动态都是一个帖子，通过home\_follow\_feed表中的tid在forum\_threadpreview表或者forum\_thread表中找到动态的内容。
+
+### space模块
 
 
 
