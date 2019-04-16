@@ -298,5 +298,11 @@ if(!submitcheck('operatesubmit')) {//赠送道具确认窗口
 }
 ```
 
+mybox我的道具中的功能和上述的功能基本类似，所以不做分析。log道具记录功能基本是对common\_magiclog表的查询，所以此处也不做分析。
+
+### follow模块
+
+follow模块是跟广播相关的功能。广播功能可以在管理后台-&gt;全局-&gt;站点功能中开启。
+
 
 
